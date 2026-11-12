@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -113,10 +114,27 @@ func TestDashboardHandler(t *testing.T) {
 	}
 
 	page := get(http.MethodGet, "/")
+	csp := page.Header().Get("Content-Security-Policy")
 	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "<title>Shop Occupancy</title>") ||
-		!strings.Contains(page.Header().Get("Content-Security-Policy"), "default-src 'none'") ||
+		!strings.Contains(csp, "default-src 'none'") || !strings.Contains(csp, "script-src 'self';") ||
 		page.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Fatalf("page: %d %v", page.Code, page.Header())
+	}
+
+	// Every asset the page references is embedded and served with long caching.
+	references := regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`).FindAllStringSubmatch(page.Body.String(), -1)
+	if len(references) < 2 {
+		t.Fatalf("page references %d assets, want script and stylesheet", len(references))
+	}
+	for _, reference := range references {
+		asset := get(http.MethodGet, reference[1])
+		if asset.Code != http.StatusOK || asset.Body.Len() == 0 ||
+			!strings.Contains(asset.Header().Get("Cache-Control"), "immutable") {
+			t.Errorf("%s: %d, %d bytes, cache %q", reference[1], asset.Code, asset.Body.Len(), asset.Header().Get("Cache-Control"))
+		}
+	}
+	if missing := get(http.MethodGet, "/assets/missing.js"); missing.Code != http.StatusNotFound {
+		t.Errorf("missing asset returned %d", missing.Code)
 	}
 
 	api := get(http.MethodGet, "/api/results")

@@ -2,9 +2,10 @@ package app
 
 import (
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"os"
 	"strings"
@@ -13,18 +14,35 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-//go:embed dashboard/index.html
-var dashboardPage []byte
+// dashboardBuild is the production build of web/dashboard (npm run build),
+// committed so the worker builds without Node.
+//
+//go:embed all:dashboard
+var dashboardBuild embed.FS
 
-// newDashboardHandler serves the read-only occupancy dashboard: the page, the
-// results API, and peak snapshots. It never exposes anything outside the
-// results directory.
+// newDashboardHandler serves the read-only occupancy dashboard: the page, its
+// hashed assets, the results API, and peak snapshots. It never exposes
+// anything outside the build and the results directory.
 func newDashboardHandler(store *resultStore) http.Handler {
+	site, err := fs.Sub(dashboardBuild, "dashboard")
+	if err != nil {
+		panic(err) // the embed directive guarantees the directory exists
+	}
+	page, err := fs.ReadFile(site, "index.html")
+	if err != nil {
+		panic("dashboard build is missing index.html; run npm run build in web/dashboard")
+	}
+	assets := http.FileServerFS(site)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		writer.Header().Set("Cache-Control", "no-cache")
-		_, _ = writer.Write(dashboardPage)
+		_, _ = writer.Write(page)
+	})
+	mux.HandleFunc("GET /assets/", func(writer http.ResponseWriter, request *http.Request) {
+		// File names carry a content hash, so they can be cached forever.
+		writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		assets.ServeHTTP(writer, request)
 	})
 	mux.HandleFunc("GET /api/results", func(writer http.ResponseWriter, _ *http.Request) {
 		records, err := store.list()
@@ -65,8 +83,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		header.Set("Referrer-Policy", "no-referrer")
 		header.Set("X-Frame-Options", "DENY")
 		header.Set("Content-Security-Policy",
-			"default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "+
-				"img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+			// React sets a few inline style attributes (tooltip position), hence
+			// 'unsafe-inline' for styles only; scripts must come from the bundle.
+			"default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; "+
+				"img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 		next.ServeHTTP(writer, request)
 	})
 }
