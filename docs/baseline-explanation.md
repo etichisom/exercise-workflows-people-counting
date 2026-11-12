@@ -18,6 +18,8 @@ Following one recording from the camera to the result in Hub:
 | **Worker** (this repository) | Validates the invocation, downloads the clip, runs YOLO11n, and builds the result: a marker plus a description when a person is found, a plain routing result when not. |
 | **Callback** (`POST /workflows/runs/<runId>`) | Sends that result back to Hub for that specific run, authorised by a token that can only update workflow runs. |
 
+![My workflow in Hub's designer: "Recording classified" (Automatic, my Agent only, always) connected to "Forward to my system"](images/my-workflow.png)
+
 **Why a callback?** The forwarder only knows that it *delivered* a message;
 it cannot know when, or whether, the analysis finished. The analysis takes
 seconds to minutes, runs outside Hub and can fail. With "Wait for result",
@@ -26,6 +28,12 @@ result to the right run and recording, and a failed analysis shows up as an
 unfinished run instead of a false "done". I saw this directly: while the
 worker was stopped, the run stayed *Running* after `forwarderDispatched`,
 and it resolved only after my worker's callback returned `202`.
+
+![The empty-scene run 79c0d2e4af30cd415ac3c182 in Hub: the forwarder stage stays open for 44 seconds until the worker's callback resolves it](images/my-workflow-run.png)
+
+The run above is the empty-scene test from the table below. The forwarder
+stage takes up almost the whole run: Hub kept it open while the worker
+downloaded and analysed the clip, and closed it when the callback arrived.
 
 The worker also acknowledges the RabbitMQ message only *after* Hub accepts
 the callback. If the callback fails, the message goes back on the queue
