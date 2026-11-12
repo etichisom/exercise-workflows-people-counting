@@ -42,9 +42,17 @@ that every asset the page references is embedded.
   cards with trend badges, the interactive area chart, and the TanStack data
   table with view tabs, column picker, row menu, pagination and a row drawer.
   The block's demo data, drag-to-reorder and row selection were removed.
-- **One addition: the clip viewer.** The selected clip's busiest frame with
-  a scrubber, beside its count and facts. It follows the newest clip until a
-  clip is picked from the chart, the busiest-moment card or a row's drawer.
+- **Overview extras.** Icon tiles on the KPI cards; beside the chart a
+  "latest frame" card and a crowd-size donut; under it four derived stats
+  (average occupancy, busiest period, occupancy rate, trend). Play buttons
+  in the table send a clip to the viewer, and crowd badges get heavier as
+  clips get busier. All in the theme's own neutrals.
+- **The clip viewer.** A card with the selected clip's busiest
+  frame and a presence track (when people were in view, where the peak
+  fell), the count and facts beside it, and a thumbnail strip of every clip
+  in the session (arrow keys step through them). It follows the newest clip
+  until one is picked from the strip, the chart, the busiest-moment card or
+  a row's drawer.
 - **Theme.** shadcn/ui's default neutral theme, unchanged, in light and dark
   (`src/index.css`). Only success/warning (status dots) and a muted bar
   colour are added. Timecodes use Geist Mono so digits do not shift.
@@ -64,7 +72,10 @@ that every asset the page references is embedded.
 | `src/components/SiteHeader.tsx` | Sidebar trigger, breadcrumb title, live status |
 | `src/components/SectionCards.tsx` | Four KPI cards |
 | `src/components/OccupancyChart.tsx` | Peak people per clip (Recharts area chart) |
-| `src/components/Viewer.tsx` | Selected clip: busiest frame, scrubber, count and facts |
+| `src/components/InsightStats.tsx` | Average, busiest period, occupancy rate, trend |
+| `src/components/LatestFrame.tsx` | Newest clip's busiest frame |
+| `src/components/CrowdDonut.tsx` | Clips by crowd size (Recharts donut) |
+| `src/components/Viewer.tsx` | Clip viewer: busiest frame, presence track, count, facts and clip strip |
 | `src/components/RecordingsTable.tsx` | TanStack data table of recordings |
 | `src/components/RecordingDrawer.tsx` | Row drawer with the peak frame and details |
 | `src/components/ui` | shadcn/ui components (generated, then owned here) |
