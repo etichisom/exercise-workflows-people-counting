@@ -86,7 +86,7 @@ func TestHandleInvocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	if envelope.Blocks[0].Type != "marker" ||
-		marker.Name != personMarkerName ||
+		marker.Name != "1 person detected" ||
 		!strings.Contains(marker.Description, "0.91 confidence") ||
 		marker.StartTimestamp != 1700000000 ||
 		marker.EndTimestamp != 1700000030 ||
@@ -288,14 +288,15 @@ func TestHandleInvocationReturnsRoutingResultWithoutPerson(t *testing.T) {
 	if invocation.result.Payload != nil {
 		t.Fatalf("unexpected ingest payload without a person detection: %s", invocation.result.Payload)
 	}
-	if invocation.result.Result["personDetected"] != false || invocation.result.Result["framesAnalyzed"] != 5 {
+	if invocation.result.Result["personDetected"] != false || invocation.result.Result["framesAnalyzed"] != 5 ||
+		invocation.result.Result["peopleCount"] != 0 {
 		t.Fatalf("unexpected no-detection result: %+v", invocation.result.Result)
 	}
 	encoded, err := json.Marshal(invocation.result)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(encoded), `"payload"`) || !strings.Contains(string(encoded), `"result":{"framesAnalyzed":5,"personDetected":false}`) {
+	if strings.Contains(string(encoded), `"payload"`) || !strings.Contains(string(encoded), `"result":{"framesAnalyzed":5,"peopleCount":0,"personDetected":false}`) {
 		t.Fatalf("unexpected no-detection JSON: %s", encoded)
 	}
 }

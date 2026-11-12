@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"path"
@@ -20,7 +21,10 @@ import (
 
 const operation = "forwarder"
 const invocationSchemaV1 = models.WorkflowInvocationSchemaV1
-const personMarkerName = "person detected"
+const (
+	peopleCountingCategory = "people counting"
+	peakOccupancyEvent     = "peak occupancy"
+)
 const maxMediaSize = 100 << 20
 
 var runIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
@@ -56,19 +60,82 @@ type handledInvocation struct {
 }
 
 func buildPersonMarker(invocation models.WorkflowInvocation, detection personDetection, start, duration int64) models.Marker {
+	people := max(detection.PeakCount, 1)
+	markerStart, markerEnd := markerInterval(detection, start, duration)
 	marker := models.Marker{
 		OrganisationId: invocation.Tenant.OrganisationID,
 		MediaKeys:      []string{invocation.Media.Key},
-		Name:           personMarkerName,
-		Description:    fmt.Sprintf("YOLO detected a person with %.2f confidence after analyzing %d sampled frames", detection.MaxConfidence, detection.FramesAnalyzed),
-		StartTimestamp: start,
-		EndTimestamp:   start + duration,
-		Duration:       duration,
+		Name:           peopleMarkerName(people),
+		Description:    detectionSummary(detection),
+		StartTimestamp: markerStart,
+		EndTimestamp:   markerEnd,
+		Duration:       markerEnd - markerStart,
+		Categories:     []models.MarkerCategory{{Name: peopleCountingCategory}},
+		Tags:           []models.MarkerTag{{Name: peopleCountTag(people)}},
+	}
+	if detection.PeakCount > 0 {
+		peak := start + int64(math.Floor(detection.PeakAtSeconds))
+		marker.Events = []models.MarkerEvent{{
+			Name:           peakOccupancyEvent,
+			Description:    fmt.Sprintf("%s visible at once", pluralPeople(people)),
+			StartTimestamp: peak,
+			EndTimestamp:   peak + 1,
+			Duration:       1,
+		}}
 	}
 	if len(invocation.Device.SiteIDs) > 0 {
 		marker.SiteId = invocation.Device.SiteIDs[0]
 	}
 	return marker
+}
+
+// markerInterval covers the time people were actually visible, from the first
+// to the last sampled frame containing a person plus one sample interval.
+// Without frame timing (PeakCount == 0) it falls back to the configured
+// MARKER_DURATION_SECONDS window from the recording start.
+func markerInterval(detection personDetection, start, duration int64) (int64, int64) {
+	if detection.PeakCount == 0 {
+		return start, start + duration
+	}
+	from := start + int64(math.Floor(detection.FirstSeenSeconds))
+	to := start + int64(math.Ceil(detection.LastSeenSeconds+detection.SampleSeconds))
+	if to <= from {
+		to = from + 1
+	}
+	return from, to
+}
+
+func pluralPeople(count int) string {
+	if count == 1 {
+		return "1 person"
+	}
+	return fmt.Sprintf("%d people", count)
+}
+
+// peopleMarkerName is the searchable marker name, e.g. "3 people detected".
+func peopleMarkerName(count int) string {
+	return pluralPeople(count) + " detected"
+}
+
+func peopleCountTag(count int) string {
+	return fmt.Sprintf("people:%d", count)
+}
+
+// formatOffset renders seconds from the recording start as m:ss.
+func formatOffset(seconds float64) string {
+	whole := int(math.Floor(seconds))
+	return fmt.Sprintf("%d:%02d", whole/60, whole%60)
+}
+
+func detectionSummary(detection personDetection) string {
+	if detection.PeakCount == 0 {
+		return fmt.Sprintf("YOLO detected a person with %.2f confidence after analyzing %d sampled frames",
+			detection.MaxConfidence, detection.FramesAnalyzed)
+	}
+	return fmt.Sprintf("YOLO counted up to %s at %s; people visible %s-%s; %d sampled frames, best person confidence %.2f",
+		pluralPeople(detection.PeakCount), formatOffset(detection.PeakAtSeconds),
+		formatOffset(detection.FirstSeenSeconds), formatOffset(detection.LastSeenSeconds+detection.SampleSeconds),
+		detection.FramesAnalyzed, detection.MaxConfidence)
 }
 
 func handleInvocation(ctx context.Context, body []byte, stageOperation string, start, duration int64, detector personDetector) (handledInvocation, error) {
@@ -127,6 +194,8 @@ func handleInvocation(ctx context.Context, body []byte, stageOperation string, s
 		"frames_analyzed": detection.FramesAnalyzed,
 		"max_confidence":  detection.MaxConfidence,
 		"person_detected": detection.Detected,
+		"peak_people":     detection.PeakCount,
+		"peak_at_seconds": detection.PeakAtSeconds,
 	}).Info("YOLO person detection completed")
 
 	result := models.WorkflowResult{
@@ -164,6 +233,7 @@ func handleInvocation(ctx context.Context, body []byte, stageOperation string, s
 	} else {
 		result.Result = map[string]any{
 			"personDetected": false,
+			"peopleCount":    0,
 			"framesAnalyzed": detection.FramesAnalyzed,
 		}
 	}

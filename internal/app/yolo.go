@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"os"
 	"strconv"
@@ -19,10 +20,24 @@ const yoloInputSize = 640
 
 var onnxRuntimeMu sync.Mutex
 
+// personDetection summarises one recording. Offsets are seconds from the start
+// of the video file and are only meaningful when PeakCount > 0.
 type personDetection struct {
 	Detected       bool
 	FramesAnalyzed int
-	MaxConfidence  float32
+	// MaxConfidence is the highest person score seen in any sampled frame, even
+	// when it stays below the configured threshold.
+	MaxConfidence float32
+
+	// PeakCount is the largest number of people visible in a single sampled
+	// frame after non-maximum suppression.
+	PeakCount        int
+	PeakAtSeconds    float64
+	FirstSeenSeconds float64
+	LastSeenSeconds  float64
+	// SampleSeconds is the time between analysed frames; a person seen in the
+	// last sample is assumed to stay visible until the next one.
+	SampleSeconds float64
 }
 
 type personDetector interface {
@@ -36,7 +51,7 @@ type yoloPersonDetector struct {
 }
 
 func newYOLOPersonDetector() (*yoloPersonDetector, error) {
-	confidence, err := strconv.ParseFloat(envOr("YOLO_CONFIDENCE", "0.5"), 32)
+	confidence, err := strconv.ParseFloat(envOr("YOLO_CONFIDENCE", "0.35"), 32)
 	if err != nil || confidence <= 0 || confidence > 1 {
 		return nil, errors.New("YOLO_CONFIDENCE must be greater than 0 and at most 1")
 	}
@@ -122,7 +137,9 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 	sampleEvery := max(1, int(math.Round(fps/detector.sampleFPS)))
 	frame := gocv.NewMat()
 	defer frame.Close()
-	detection := personDetection{}
+	detection := personDetection{SampleSeconds: float64(sampleEvery) / fps}
+	// Unlike a yes/no check, counting must see the whole clip: the busiest
+	// moment can come after the first person appears.
 	for frameIndex := 0; ; frameIndex++ {
 		if err := ctx.Err(); err != nil {
 			return personDetection{}, fmt.Errorf("YOLO person detection canceled: %w", err)
@@ -133,16 +150,11 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 		if frame.Empty() || frameIndex%sampleEvery != 0 {
 			continue
 		}
-		confidence, err := detectPersonInFrame(session, frame)
+		boxes, bestScore, err := detectPeopleInFrame(session, frame, detector.confidence)
 		if err != nil {
 			return personDetection{}, err
 		}
-		detection.FramesAnalyzed++
-		if confidence >= detector.confidence {
-			detection.Detected = true
-			detection.MaxConfidence = confidence
-			return detection, nil
-		}
+		detection.recordFrame(float64(frameIndex)/fps, len(boxes), bestScore)
 	}
 	if detection.FramesAnalyzed == 0 {
 		return personDetection{}, errors.New("YOLO did not decode any video frames")
@@ -150,36 +162,60 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 	return detection, nil
 }
 
-func detectPersonInFrame(session *ort.DynamicAdvancedSession, frame gocv.Mat) (float32, error) {
+// detectPeopleInFrame returns one box per person at or above threshold, after
+// non-maximum suppression, plus the best raw person score in the frame.
+func detectPeopleInFrame(session *ort.DynamicAdvancedSession, frame gocv.Mat, threshold float32) ([]personBox, float32, error) {
 	inputData, err := yoloInput(frame)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	input, err := ort.NewTensor(ort.NewShape(1, 3, yoloInputSize, yoloInputSize), inputData)
 	if err != nil {
-		return 0, errors.New("YOLO could not create an input tensor")
+		return nil, 0, errors.New("YOLO could not create an input tensor")
 	}
 	defer input.Destroy()
 	outputs := []ort.Value{nil}
 	if err := session.Run([]ort.Value{input}, outputs); err != nil {
-		return 0, errors.New("YOLO inference failed")
+		return nil, 0, errors.New("YOLO inference failed")
 	}
 	defer outputs[0].Destroy()
 	output, ok := outputs[0].(*ort.Tensor[float32])
 	if !ok {
-		return 0, errors.New("YOLO returned an unsupported output tensor")
+		return nil, 0, errors.New("YOLO returned an unsupported output tensor")
 	}
-	return personConfidence(output.GetData(), output.GetShape())
+	candidates, bestScore, err := personCandidates(output.GetData(), output.GetShape(), threshold)
+	if err != nil {
+		return nil, 0, err
+	}
+	return nonMaxSuppression(candidates, nmsIoUThreshold), bestScore, nil
 }
 
+// letterboxPadding is the grey Ultralytics uses to pad letterboxed inputs.
+const letterboxPadding = 114
+
+// yoloInput letterboxes a BGR frame into the model's square input: it scales
+// the frame to fit while keeping its aspect ratio and pads the rest with grey.
+// Stretching a 16:9 frame to a square would make people look thinner than the
+// model saw in training and lowers their scores.
 func yoloInput(frame gocv.Mat) ([]float32, error) {
-	resized := gocv.NewMat()
-	defer resized.Close()
-	gocv.Resize(frame, &resized, image.Pt(yoloInputSize, yoloInputSize), 0, 0, gocv.InterpolationLinear)
-	if resized.Empty() || resized.Channels() != 3 {
+	if frame.Empty() || frame.Channels() != 3 {
 		return nil, errors.New("YOLO could not prepare a three-channel video frame")
 	}
-	pixels := resized.ToBytes()
+	scale := min(float64(yoloInputSize)/float64(frame.Cols()), float64(yoloInputSize)/float64(frame.Rows()))
+	width := min(yoloInputSize, max(1, int(math.Round(float64(frame.Cols())*scale))))
+	height := min(yoloInputSize, max(1, int(math.Round(float64(frame.Rows())*scale))))
+	resized := gocv.NewMat()
+	defer resized.Close()
+	gocv.Resize(frame, &resized, image.Pt(width, height), 0, 0, gocv.InterpolationLinear)
+	left, top := (yoloInputSize-width)/2, (yoloInputSize-height)/2
+	padded := gocv.NewMat()
+	defer padded.Close()
+	grey := color.RGBA{R: letterboxPadding, G: letterboxPadding, B: letterboxPadding}
+	gocv.CopyMakeBorder(resized, &padded, top, yoloInputSize-height-top, left, yoloInputSize-width-left, gocv.BorderConstant, grey)
+	if padded.Empty() || padded.Channels() != 3 || padded.Cols() != yoloInputSize || padded.Rows() != yoloInputSize {
+		return nil, errors.New("YOLO could not prepare a three-channel video frame")
+	}
+	pixels := padded.ToBytes()
 	pixelCount := yoloInputSize * yoloInputSize
 	if len(pixels) != pixelCount*3 {
 		return nil, errors.New("YOLO received an unexpected video frame layout")
@@ -192,31 +228,4 @@ func yoloInput(frame gocv.Mat) ([]float32, error) {
 		input[2*pixelCount+pixel] = float32(pixels[source]) / 255
 	}
 	return input, nil
-}
-
-func personConfidence(output []float32, shape ort.Shape) (float32, error) {
-	if len(shape) != 3 || shape[0] != 1 {
-		return 0, fmt.Errorf("YOLO returned unsupported output shape %v", shape)
-	}
-	rows, columns := int(shape[1]), int(shape[2])
-	if len(output) != rows*columns {
-		return 0, errors.New("YOLO returned inconsistent output data")
-	}
-	var confidence float32
-	switch {
-	case rows == 84:
-		for detection := 0; detection < columns; detection++ {
-			confidence = max(confidence, output[4*columns+detection])
-		}
-	case columns == 84:
-		for detection := 0; detection < rows; detection++ {
-			confidence = max(confidence, output[detection*columns+4])
-		}
-	default:
-		return 0, fmt.Errorf("YOLO returned unsupported output shape %v", shape)
-	}
-	if confidence < 0 || confidence > 1 || math.IsNaN(float64(confidence)) || math.IsInf(float64(confidence), 0) {
-		return 0, errors.New("YOLO returned an invalid person confidence")
-	}
-	return confidence, nil
 }
