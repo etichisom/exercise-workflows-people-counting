@@ -41,6 +41,66 @@ export function niceScale(maxValue: number): { max: number; step: number } {
   return { max: Math.ceil(top / step) * step, step }
 }
 
+export type CrowdLevel = 'empty' | 'quiet' | 'busy' | 'crowded'
+
+export const crowdLevels: { level: CrowdLevel; label: string; range: string }[] = [
+  { level: 'empty', label: 'Empty', range: '0 people' },
+  { level: 'quiet', label: 'Quiet', range: '1–2 people' },
+  { level: 'busy', label: 'Busy', range: '3–5 people' },
+  { level: 'crowded', label: 'Crowded', range: '6+ people' },
+]
+
+export function crowdLevel(peak: number): CrowdLevel {
+  if (peak <= 0) return 'empty'
+  if (peak <= 2) return 'quiet'
+  if (peak <= 5) return 'busy'
+  return 'crowded'
+}
+
+export function crowdBreakdown(results: ResultRecord[]): { level: CrowdLevel; label: string; range: string; count: number; percent: number }[] {
+  return crowdLevels.map(entry => {
+    const count = results.filter(record => crowdLevel(record.peakCount) === entry.level).length
+    return { ...entry, count, percent: results.length ? Math.round((count / results.length) * 100) : 0 }
+  })
+}
+
+/** Approximate clip length from the sampled frames; never shorter than the visible span. */
+export function clipSeconds(record: ResultRecord): number {
+  const sampled = record.framesAnalyzed * (record.sampleSeconds || 1)
+  return Math.max(sampled, record.lastSeenSeconds + (record.sampleSeconds || 0), 1)
+}
+
+export type RecordingTab = 'all' | 'people' | 'empty' | 'hub'
+
+export function matchesTab(record: ResultRecord, tab: RecordingTab): boolean {
+  switch (tab) {
+    case 'people': return record.peakCount > 0
+    case 'empty': return record.peakCount === 0
+    case 'hub': return record.delivery === 'submitted'
+    default: return true
+  }
+}
+
+export function tabCounts(results: ResultRecord[]): Record<RecordingTab, number> {
+  return {
+    all: results.length,
+    people: results.filter(record => matchesTab(record, 'people')).length,
+    empty: results.filter(record => matchesTab(record, 'empty')).length,
+    hub: results.filter(record => matchesTab(record, 'hub')).length,
+  }
+}
+
+export type RecordingFilter = { tab: RecordingTab; query: string; crowd: CrowdLevel | 'any' }
+
+/** Filters by tab, crowd size and a free-text query over run ID, file and time label. */
+export function filterRecordings(results: ResultRecord[], filter: RecordingFilter, label: (record: ResultRecord) => string): ResultRecord[] {
+  const query = filter.query.trim().toLowerCase()
+  return results.filter(record =>
+    matchesTab(record, filter.tab) &&
+    (filter.crowd === 'any' || crowdLevel(record.peakCount) === filter.crowd) &&
+    (query === '' || [record.runId, record.mediaKey, label(record)].some(value => value.toLowerCase().includes(query))))
+}
+
 /** A cheap identity for a result list, used to skip identical re-renders. */
 export function signature(results: ResultRecord[]): string {
   return results.map(record => `${record.runId}@${record.processedAt}`).join('|')

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { chronological, niceScale, signature, summarize } from './summary'
+import {
+  chronological, clipSeconds, crowdBreakdown, crowdLevel, filterRecordings, niceScale, signature, summarize, tabCounts,
+} from './summary'
 import { deliveryLabel, hubRecordingUrl, offset, people, relativeTime, snapshotUrl, visibleSpan } from './format'
 import type { ResultRecord } from './types'
 
@@ -60,6 +62,52 @@ describe('niceScale', () => {
     [42, { max: 50, step: 10 }],
   ])('scales a peak of %i to %o', (peak, expected) => {
     expect(niceScale(peak)).toEqual(expected)
+  })
+})
+
+describe('crowd levels', () => {
+  it.each([[0, 'empty'], [1, 'quiet'], [2, 'quiet'], [3, 'busy'], [5, 'busy'], [6, 'crowded'], [40, 'crowded']] as const)(
+    'puts %i people in %s', (peak, level) => expect(crowdLevel(peak)).toBe(level))
+
+  it('breaks recordings down by crowd size with rounded shares', () => {
+    const breakdown = crowdBreakdown([
+      record({ runId: 'a', peakCount: 0 }), record({ runId: 'b', peakCount: 4 }), record({ runId: 'c', peakCount: 4 }),
+    ])
+    expect(breakdown.map(entry => [entry.level, entry.count, entry.percent])).toEqual([
+      ['empty', 1, 33], ['quiet', 0, 0], ['busy', 2, 67], ['crowded', 0, 0],
+    ])
+    expect(crowdBreakdown([]).every(entry => entry.count === 0 && entry.percent === 0)).toBe(true)
+  })
+})
+
+describe('clipSeconds', () => {
+  it('uses the sampled frames and never cuts off the visible span', () => {
+    expect(clipSeconds(record({ framesAnalyzed: 30, sampleSeconds: 1 }))).toBe(30)
+    expect(clipSeconds(record({ framesAnalyzed: 2, sampleSeconds: 1, lastSeenSeconds: 9 }))).toBe(10)
+    expect(clipSeconds(record({ framesAnalyzed: 0, sampleSeconds: 0 }))).toBe(1)
+  })
+})
+
+describe('filterRecordings', () => {
+  const results = [
+    record({ runId: 'run-busy', peakCount: 4, delivery: 'submitted', mediaKey: 'owner/1794-cam.mp4' }),
+    record({ runId: 'run-empty', peakCount: 0, delivery: 'offline' }),
+    record({ runId: 'run-quiet', peakCount: 1, delivery: 'offline' }),
+  ]
+  const label = (r: ResultRecord) => `label ${r.runId}`
+  const ids = (filter: Parameters<typeof filterRecordings>[1]) => filterRecordings(results, filter, label).map(r => r.runId)
+
+  it('filters by tab', () => {
+    expect(ids({ tab: 'people', query: '', crowd: 'any' })).toEqual(['run-busy', 'run-quiet'])
+    expect(ids({ tab: 'empty', query: '', crowd: 'any' })).toEqual(['run-empty'])
+    expect(ids({ tab: 'hub', query: '', crowd: 'any' })).toEqual(['run-busy'])
+    expect(tabCounts(results)).toEqual({ all: 3, people: 2, empty: 1, hub: 1 })
+  })
+
+  it('combines crowd size and a case-insensitive query', () => {
+    expect(ids({ tab: 'all', query: '', crowd: 'quiet' })).toEqual(['run-quiet'])
+    expect(ids({ tab: 'all', query: '  CAM ', crowd: 'any' })).toEqual(['run-busy'])
+    expect(ids({ tab: 'people', query: 'empty', crowd: 'any' })).toEqual([])
   })
 })
 

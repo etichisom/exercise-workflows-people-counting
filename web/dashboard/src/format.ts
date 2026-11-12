@@ -28,6 +28,13 @@ export function clockTime(date: Date): string {
   return timeFormat.format(date)
 }
 
+const axisFormat = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' })
+
+/** Compact 24-hour time with seconds for chart axes: clips are often under a minute apart. */
+export function axisTime(date: Date): string {
+  return axisFormat.format(date)
+}
+
 export function recordedLabel(record: ResultRecord): string {
   const date = recordedAt(record)
   return `${dayFormat.format(date)}, ${timeFormat.format(date)}`

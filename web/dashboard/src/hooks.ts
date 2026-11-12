@@ -59,7 +59,7 @@ export function useResults(): { results: ResultRecord[] | null; state: Connectio
 }
 
 /** Tracks an element's content width so SVG can be drawn at real pixels. */
-export function useElementWidth<T extends HTMLElement>(): [RefObject<T>, number] {
+export function useElementWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
   const ref = useRef<T>(null)
   const [width, setWidth] = useState(0)
   useEffect(() => {
@@ -75,7 +75,7 @@ export function useElementWidth<T extends HTMLElement>(): [RefObject<T>, number]
 type Theme = 'light' | 'dark'
 const THEME_KEY = 'occupancy-theme'
 
-function initialTheme(): Theme {
+export function initialTheme(): Theme {
   try {
     const stored = localStorage.getItem(THEME_KEY)
     if (stored === 'light' || stored === 'dark') return stored
@@ -88,6 +88,7 @@ function initialTheme(): Theme {
 export function useTheme(): [Theme, () => void] {
   const [theme, setTheme] = useState<Theme>(initialTheme)
   useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.style.colorScheme = theme
   }, [theme])
   const toggle = useCallback(() => {
