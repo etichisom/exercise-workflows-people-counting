@@ -5,7 +5,7 @@ import {
   type ColumnVisibilityState, type SortingState,
 } from '@tanstack/react-table'
 import {
-  ArrowDown, ArrowUp, ArrowUpDown, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  ArrowDown, ArrowUp, Play, ArrowUpDown, ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Columns3, Copy, EllipsisVertical, MonitorPlay, PanelRight, Search, User, UserX, Users, UsersRound, X,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +43,14 @@ const tabs: { value: RecordingTab; label: string }[] = [
 ]
 
 const crowdIcons: Record<CrowdLevel, typeof User> = { empty: UserX, quiet: User, busy: Users, crowded: UsersRound }
+
+/** Busier clips get heavier badges, in the theme's own neutrals. */
+const crowdBadge: Record<CrowdLevel, { variant: 'default' | 'secondary' | 'outline'; className: string }> = {
+  crowded: { variant: 'default', className: '' },
+  busy: { variant: 'secondary', className: 'ring-1 ring-foreground/15' },
+  quiet: { variant: 'outline', className: '' },
+  empty: { variant: 'outline', className: 'border-dashed text-muted-foreground' },
+}
 
 /** When people were in view across the clip, with a dot at the peak. */
 function PresenceBar({ record }: { record: ResultRecord }) {
@@ -97,6 +105,16 @@ export function RecordingsTable({ results, newRuns, selectedId, onOpen, onShowIn
   const firstPage = () => setPagination(current => ({ ...current, pageIndex: 0 }))
 
   const columns = useMemo(() => columnHelper.columns([
+    columnHelper.display({
+      id: 'play',
+      header: () => <span className="sr-only">Show in viewer</span>,
+      cell: ({ row }) => <Button variant="outline" size="icon-sm" className="rounded-full"
+        onClick={event => { event.stopPropagation(); onShowInViewer(row.original) }}
+        aria-label={`Show the ${recordedLabel(row.original)} recording in the viewer`}>
+        <Play className="size-3 fill-current" aria-hidden="true" />
+      </Button>,
+      enableHiding: false,
+    }),
     columnHelper.accessor('recordingStart', {
       id: 'recording',
       header: ({ column }) => <SortHeader label="Recording" sorted={column.getIsSorted()} onToggle={() => column.toggleSorting(column.getIsSorted() === 'asc')} />,
@@ -128,7 +146,7 @@ export function RecordingsTable({ results, newRuns, selectedId, onOpen, onShowIn
       cell: ({ row }) => {
         const level = crowdLevel(row.original.peakCount)
         const Icon = crowdIcons[level]
-        return <Badge variant="outline" className="px-1.5 text-muted-foreground">
+        return <Badge variant={crowdBadge[level].variant} className={cn('px-1.5', crowdBadge[level].className)}>
           <Icon aria-hidden="true" />{crowdLevels.find(entry => entry.level === level)?.label}
         </Badge>
       },
@@ -252,7 +270,7 @@ export function RecordingsTable({ results, newRuns, selectedId, onOpen, onShowIn
           <TableHeader className="bg-muted">
             {table.getHeaderGroups().map(group => <TableRow key={group.id} className="hover:bg-transparent">
               {group.headers.map(header => <TableHead key={header.id} colSpan={header.colSpan}
-                className={cn(header.column.id === 'recording' && 'pl-4', header.column.id === 'actions' && 'w-12 pr-4')}>
+                className={cn(header.column.id === 'play' && 'w-12 pl-4', header.column.id === 'actions' && 'w-12 pr-4')}>
                 {header.isPlaceholder ? null : <FlexRender header={header} />}
               </TableHead>)}
             </TableRow>)}
@@ -263,7 +281,7 @@ export function RecordingsTable({ results, newRuns, selectedId, onOpen, onShowIn
                 data-state={row.original.runId === selectedId ? 'selected' : undefined}
                 className={cn('cursor-pointer', newRuns.has(row.original.runId) && 'animate-in fade-in-0 bg-primary/[0.04]')}>
                 {row.getVisibleCells().map(cell => <TableCell key={cell.id}
-                  className={cn('py-3', cell.column.id === 'recording' && 'pl-4', cell.column.id === 'actions' && 'pr-4')}>
+                  className={cn('py-3', cell.column.id === 'play' && 'pl-4', cell.column.id === 'actions' && 'pr-4')}>
                   <FlexRender cell={cell} />
                 </TableCell>)}
               </TableRow>)

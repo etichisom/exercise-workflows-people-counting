@@ -4,6 +4,9 @@ import { Card } from '@/components/ui/card'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AppSidebar } from '@/components/AppSidebar'
+import { CrowdDonut } from '@/components/CrowdDonut'
+import { InsightStats } from '@/components/InsightStats'
+import { LatestFrame } from '@/components/LatestFrame'
 import type { SectionId } from '@/components/AppSidebar'
 import { OccupancyChart } from '@/components/OccupancyChart'
 import { RecordingDrawer } from '@/components/RecordingDrawer'
@@ -116,8 +119,12 @@ export function App() {
       theme={theme} onToggleTheme={toggleTheme} />
 
     <SidebarInset id="main" className="min-w-0">
-      <SiteHeader state={state} updatedAt={updatedAt} now={now} range={range} />
+      <SiteHeader state={state} updatedAt={updatedAt} now={now} />
       <div className="@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6">
+        <div className="space-y-1 px-4 lg:px-6">
+          <h1 className="text-2xl font-semibold tracking-tight">Shop occupancy</h1>
+          <p className="text-sm text-muted-foreground">People counted in each recording by the YOLO workflow stage · {range}</p>
+        </div>
         {state === 'offline' && <div className="px-4 lg:px-6">
           <div role="alert" className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
             <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
@@ -136,19 +143,21 @@ export function App() {
               <section id="overview" aria-label="Overview" className="flex scroll-mt-20 flex-col gap-4 md:gap-6">
                 <SectionCards summary={summary} previous={ordered[ordered.length - 2] ?? null} sentToHub={sentToHub} now={now}
                   onViewBusiest={showInViewer} />
-                <div className="px-4 lg:px-6">
-                  <OccupancyChart records={ordered} selectedId={selected.runId} onSelect={select} />
+                <div className="grid gap-4 px-4 md:gap-6 lg:px-6 @5xl/main:grid-cols-[minmax(0,1fr)_22rem]">
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <OccupancyChart records={ordered} selectedId={selected.runId} onSelect={select} />
+                    <InsightStats summary={summary} ordered={ordered} />
+                  </div>
+                  <div className="grid gap-4 @xl/main:grid-cols-2 @5xl/main:flex @5xl/main:flex-col">
+                    {latest && <LatestFrame record={latest} now={now} onOpen={showInViewer} />}
+                    <CrowdDonut results={list} />
+                  </div>
                 </div>
               </section>
 
-              <section id="viewer" tabIndex={-1} aria-labelledby="viewer-title" className="outline-none flex scroll-mt-20 flex-col gap-3">
-                <SectionTitle id="viewer-title" title="Clip viewer"
-                  description="The busiest frame of the selected clip, with every counted person boxed. Follows the newest clip until you pick another." />
-                <div className="px-4 lg:px-6">
-                  <Viewer record={selected} previous={ordered[index - 1] ?? null} position={index + 1} total={ordered.length}
-                    isLatest={isLatest} onPrevious={() => select(ordered[index - 1])} onNext={() => select(ordered[index + 1])}
-                    onLatest={() => setPinned(null)} onExpand={() => setDrawer(selected)} />
-                </div>
+              <section id="viewer" tabIndex={-1} aria-label="Clip viewer" className="scroll-mt-20 px-4 outline-none lg:px-6">
+                <Viewer records={ordered} index={index} isLatest={isLatest} onSelect={select}
+                  onLatest={() => setPinned(null)} onExpand={() => setDrawer(selected)} />
               </section>
 
               <section id="recordings" aria-labelledby="recordings-title" className="flex scroll-mt-20 flex-col gap-3">

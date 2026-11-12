@@ -149,11 +149,11 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-/* Faint grid behind an empty frame, so "nothing detected" still reads as a camera view. */
+/* Faint grid behind an empty frame, so "nothing detected" still reads as a camera view. Follows the theme. */
 .scene-grid {
   background-image:
-    linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 7%, transparent) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 

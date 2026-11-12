@@ -105,3 +105,18 @@ export function filterRecordings(results: ResultRecord[], filter: RecordingFilte
 export function signature(results: ResultRecord[]): string {
   return results.map(record => `${record.runId}@${record.processedAt}`).join('|')
 }
+
+export type Trend = 'increasing' | 'decreasing' | 'steady'
+
+/**
+ * Whether the newest clip is busier than the clips before it: its peak
+ * against their mean, with half a person of slack so noise reads as steady.
+ * Null until there are two clips. Expects oldest first.
+ */
+export function occupancyTrend(ordered: ResultRecord[]): Trend | null {
+  if (ordered.length < 2) return null
+  const earlier = ordered.slice(0, -1)
+  const mean = earlier.reduce((sum, record) => sum + record.peakCount, 0) / earlier.length
+  const difference = ordered[ordered.length - 1].peakCount - mean
+  return difference > 0.5 ? 'increasing' : difference < -0.5 ? 'decreasing' : 'steady'
+}

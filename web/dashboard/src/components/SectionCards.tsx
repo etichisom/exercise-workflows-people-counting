@@ -1,4 +1,4 @@
-import { ChevronRight, CircleCheck, FlaskConical, Minus, TrendingDown, TrendingUp, Users } from 'lucide-react'
+import { ChevronRight, CircleCheck, Film, FlaskConical, Minus, Send, Trophy, TrendingDown, TrendingUp, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { useCountUp } from '@/hooks'
@@ -14,6 +14,15 @@ function Value({ value, unit }: { value: number; unit?: string }) {
     {shown}
     {unit && <span className={cn('text-sm font-normal tracking-normal text-muted-foreground', unit === '%' && '-ml-1')}>{unit}</span>}
   </CardTitle>
+}
+
+function Heading({ icon: Icon, children }: { icon: typeof Users; children: React.ReactNode }) {
+  return <CardDescription className="flex items-center gap-2">
+    <span className="flex size-7 items-center justify-center rounded-md border bg-background text-foreground" aria-hidden="true">
+      <Icon className="size-3.5" />
+    </span>
+    {children}
+  </CardDescription>
 }
 
 function levelLabel(peak: number): string {
@@ -36,9 +45,9 @@ export function SectionCards({ summary, previous, sentToHub, now, onViewBusiest 
   const local = total - sentToHub
 
   return <div className="grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4 dark:*:data-[slot=card]:bg-card">
-    <Card className="@container/card">
+    <Card className="@container/card ring-foreground/20">
       <CardHeader>
-        <CardDescription>Latest clip</CardDescription>
+        <Heading icon={Users}>Latest clip</Heading>
         <Value value={latestPeak} unit={latestPeak === 1 ? 'person' : 'people'} />
         <CardAction>
           <Badge variant="outline"><Trend aria-hidden="true" />{change > 0 ? `+${change}` : change}</Badge>
@@ -52,7 +61,7 @@ export function SectionCards({ summary, previous, sentToHub, now, onViewBusiest 
 
     <Card className="@container/card">
       <CardHeader>
-        <CardDescription>Busiest moment</CardDescription>
+        <Heading icon={Trophy}>Busiest moment</Heading>
         <Value value={busiest?.peakCount ?? 0} unit={busiest?.peakCount === 1 ? 'person' : 'people'} />
         {busiest && <CardAction>
           <Badge variant="outline"><Users aria-hidden="true" />{levelLabel(busiest.peakCount)}</Badge>
@@ -74,7 +83,7 @@ export function SectionCards({ summary, previous, sentToHub, now, onViewBusiest 
 
     <Card className="@container/card">
       <CardHeader>
-        <CardDescription>Clips with people</CardDescription>
+        <Heading icon={Film}>Clips with people</Heading>
         <Value value={sharePercent} unit="%" />
         <CardAction>
           <Badge variant="outline">{withPeople} of {total}</Badge>
@@ -90,7 +99,7 @@ export function SectionCards({ summary, previous, sentToHub, now, onViewBusiest 
 
     <Card className="@container/card">
       <CardHeader>
-        <CardDescription>Delivered to Hub</CardDescription>
+        <Heading icon={Send}>Delivered to Hub</Heading>
         <Value value={sentToHub} unit={`of ${total}`} />
         <CardAction>
           {local === 0

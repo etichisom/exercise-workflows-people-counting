@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chronological, clipSeconds, crowdBreakdown, crowdLevel, filterRecordings, niceScale, signature, summarize, tabCounts,
+  chronological, clipSeconds, occupancyTrend, crowdBreakdown, crowdLevel, filterRecordings, niceScale, signature, summarize, tabCounts,
 } from './summary'
 import { cameraName, comparePeak, deliveryLabel, hubRecordingUrl, offset, people, relativeTime, snapshotUrl, visibleSpan } from './format'
 import type { ResultRecord } from './types'
@@ -171,5 +171,17 @@ describe('comparePeak', () => {
     expect(comparePeak(4, 4)).toBe('Same as the previous clip')
     expect(comparePeak(4, 2)).toBe('2 more than the previous clip')
     expect(comparePeak(0, 2)).toBe('2 fewer than the previous clip')
+  })
+})
+
+describe('occupancyTrend', () => {
+  const clip = (peakCount: number) => record({ peakCount })
+  it('needs two clips', () => {
+    expect(occupancyTrend([clip(3)])).toBeNull()
+  })
+  it('compares the newest clip with the mean before it', () => {
+    expect(occupancyTrend([clip(4), clip(4), clip(2), clip(0)])).toBe('decreasing')
+    expect(occupancyTrend([clip(1), clip(1), clip(3)])).toBe('increasing')
+    expect(occupancyTrend([clip(2), clip(3), clip(3)])).toBe('steady')
   })
 })

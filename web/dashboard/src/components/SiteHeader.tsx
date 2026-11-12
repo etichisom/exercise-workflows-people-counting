@@ -7,11 +7,10 @@ import { ExternalLink, HUB_URL, StatusDot } from '@/components/shared'
 import { relativeTime } from '@/format'
 import type { ConnectionState } from '@/types'
 
-export function SiteHeader({ state, updatedAt, now, range }: {
+export function SiteHeader({ state, updatedAt, now }: {
   state: ConnectionState
   updatedAt: Date | null
   now: Date
-  range: string
 }) {
   return <header className="sticky top-0 z-20 flex h-(--header-height) shrink-0 items-center gap-2 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 md:rounded-t-xl">
     <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
@@ -23,10 +22,9 @@ export function SiteHeader({ state, updatedAt, now, range }: {
           <BreadcrumbSeparator className="hidden md:block" />
           <BreadcrumbItem className="min-w-0">
             <BreadcrumbPage className="truncate">
-              <h1 className="text-base font-medium">Shop occupancy</h1>
+              Shop occupancy
             </BreadcrumbPage>
           </BreadcrumbItem>
-          <BreadcrumbItem className="hidden truncate text-muted-foreground xl:inline-flex">· {range}</BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
       <span className="hidden h-8 items-center rounded-full border px-3 text-sm text-muted-foreground sm:inline-flex" role="status">

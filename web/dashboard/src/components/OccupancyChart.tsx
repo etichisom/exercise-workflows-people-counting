@@ -41,7 +41,7 @@ export function OccupancyChart({ records, selectedId, onSelect }: {
 
   return <Card className="@container/card">
     <CardHeader>
-      <CardTitle>Peak people per clip</CardTitle>
+      <CardTitle>Occupancy over time</CardTitle>
       <CardDescription>
         <span className="hidden @[540px]/card:block">
           Most people visible at once in each clip, oldest to newest{busiest ? `. Busiest: ${people(busiest.peakCount)}.` : '.'}
@@ -80,7 +80,7 @@ export function OccupancyChart({ records, selectedId, onSelect }: {
           <CartesianGrid vertical={false} />
           <XAxis dataKey="time" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} className="font-mono" />
           <YAxis width={28} allowDecimals={false} domain={[0, scale.max]} tickLine={false} axisLine={false} tickMargin={4} />
-          <ChartTooltip cursor={{ stroke: 'var(--border)' }}
+          <ChartTooltip cursor={{ stroke: 'var(--muted-foreground)', strokeDasharray: '4 4' }}
             content={<ChartTooltipContent indicator="dot"
               labelFormatter={(_, payload) => payload?.[0]?.payload?.label ?? ''} />} />
           <Area dataKey="peak" type="linear" fill="url(#fillPeak)" stroke="var(--color-peak)" strokeWidth={2}
