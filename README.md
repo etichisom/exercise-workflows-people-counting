@@ -710,6 +710,10 @@ longer queue work for an unattended worker. Delete the exercise access token.
 > stage now counts how many people are visible at the busiest moment and
 > writes the count, peak time, and visible span back to Hub as a searchable
 > marker.
+>
+> **Baseline explained: [how it works and what my runs showed](docs/baseline-explanation.md)**,
+> answering the four questions below with run IDs, media keys and callback
+> results from the tests.
 
 Once the baseline works, explain it in your own words before modifying it.
 Use observations from your run and the implementation, not just the diagram:
