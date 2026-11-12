@@ -103,17 +103,19 @@ profile).
 - **API.** `GET /api/results` (newest first, latest record per run) and
   `GET /snapshots/<runId>.jpg`. Run IDs are validated before touching the
   file system; nothing outside `RESULTS_DIR` is served.
-- **Page.** A React + TypeScript + Vite app in [web/dashboard](../web/dashboard),
-  built with the Hub widgets from UUG.AI's design system
-  ([uug-ai/design](https://github.com/uug-ai/design), vendored under MIT), so
-  KPIs, blocks, badges, tables and toggles look like Hub itself. The chart is
-  a custom SVG in Hub's purple, checked for contrast on Hub's light and dark
-  cards. The production build is committed into `internal/app/dashboard` and
-  embedded in the worker, with the Inter font bundled, so it works offline
+- **Page.** A React + TypeScript + Vite app in [web/dashboard](../web/dashboard)
+  built with [shadcn/ui](https://ui.shadcn.com) (Radix primitives, Tailwind
+  CSS v4). It shows the pipeline at a glance (analysed, with people, busiest
+  moment, sent to Hub), peak people per recording, a crowd-size breakdown,
+  and a searchable, filterable recordings table with a detail dialog per
+  recording. The chart is a custom SVG: muted bars with the newest recording
+  highlighted in a blue validated for 3:1 contrast on light and dark cards.
+  The production build is committed into `internal/app/dashboard` and
+  embedded in the worker, with the Geist font bundled, so it works offline
   and the Go build needs no Node. It polls every 4 seconds (paused while the
   tab is hidden), highlights new recordings, follows the system light/dark
-  setting with a toggle, supports keyboard focus on chart bars, a table view,
-  and phone widths.
+  setting with a toggle, and is keyboard and screen-reader friendly down to
+  phone widths.
 - **Privacy.** Snapshots can show people. `RESULTS_DIR` is created owner-only,
   `results/` is ignored by Git, the default address is `127.0.0.1`, and
   snapshots are never sent to Hub.
