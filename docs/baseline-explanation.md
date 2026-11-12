@@ -39,7 +39,8 @@ For each test I matched the same identifiers across Hub and the worker log:
 | --- | --- | --- | --- |
 | Person (baseline) | `7c06a0dfb78d7c91f48e6c82` | `…/1794494215565-introduction-agent-chisom.mp4` | `202` |
 | No person (baseline) | `b6ce16a2500ecf00ba9c7b2b` | `…/1794494897533-introduction-agent-chisom.mp4` | `202` |
-| People counting | `438651a70cc18dbd27b22330` | `…/1794496219866-introduction-agent-chisom.mp4` | `202` |
+| People counting, busy shop | `438651a70cc18dbd27b22330` | `…/1794496219866-introduction-agent-chisom.mp4` | `202` |
+| People counting, empty scene | `79c0d2e4af30cd415ac3c182` | `…/1794504884788-introduction-agent-chisom.mp4` | `202` |
 
 - The **run ID** is the strongest link. Hub put it in the invocation, the
   worker logged it, and the callback URL is built from it. Hub accepting the

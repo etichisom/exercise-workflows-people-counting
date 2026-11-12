@@ -74,8 +74,15 @@ available is an easy synthetic one. Set `YOLO_CONFIDENCE` per site if needed.
 - [yolo_test.go](../internal/app/yolo_test.go) checks letterboxing pixel by
   pixel and runs the real ONNX model on a blank video
   (`TestYOLOModelIntegration`).
-- End to end: positive (busy shop) and counterexample (empty scene) recordings
-  processed through Hub, RabbitMQ and the callback.
+- End to end through Hub, RabbitMQ and the callback, both on the counting
+  stage:
+  - Positive: run `438651a70cc18dbd27b22330`, demo shop clip
+    `…/1794496219866-introduction-agent-chisom.mp4`, marker "3 people
+    detected" with tag `people:3` and a peak occupancy event at 0:02, `202`.
+  - Counterexample: run `79c0d2e4af30cd415ac3c182`, synthetic empty clip
+    `…/1794504884788-introduction-agent-chisom.mp4`, 30 frames, best person
+    score 0.025, `peopleCount: 0` sent as a routing result only, recording
+    left unchanged, `202`.
 
 ## Occupancy dashboard
 
