@@ -9,6 +9,10 @@
     "GOWORK": "off"
   },
   "postCreateCommand": "go mod download && go test ./...",
+  "forwardPorts": [8090],
+  "portsAttributes": {
+    "8090": { "label": "Occupancy dashboard", "onAutoForward": "notify" }
+  },
   "customizations": {
     "vscode": {
       "extensions": ["golang.Go"],

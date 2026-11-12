@@ -68,6 +68,20 @@
       "env": {
         "RESULT_MODE": "http"
       }
+    },
+    {
+      "name": "Dashboard: results only",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}",
+      "cwd": "${workspaceFolder}",
+      "args": ["-dashboard"],
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "RESULTS_DIR": "${workspaceFolder}/results",
+        "DASHBOARD_ADDR": "0.0.0.0:8090"
+      }
     }
   ]
 }

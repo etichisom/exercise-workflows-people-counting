@@ -77,6 +77,40 @@ available is an easy synthetic one. Set `YOLO_CONFIDENCE` per site if needed.
 - End to end: positive (busy shop) and counterexample (empty scene) recordings
   processed through Hub, RabbitMQ and the callback.
 
+## Occupancy dashboard
+
+Hub shows one recording at a time. The dashboard shows the trend: how busy
+each recording was, the busiest moment with the counted people boxed, and a
+live feed of recordings as the worker processes them. (No screenshot is
+committed: the snapshots show identifiable people.)
+
+It is served by the worker itself, so there is nothing extra to deploy:
+
+```bash
+set -a; . ./.env; set +a
+RESULTS_DIR=./results DASHBOARD_ADDR=0.0.0.0:8090 go run . -once
+```
+
+Then open <http://localhost:8090>. To browse earlier results without
+RabbitMQ, run `go run . -dashboard` (or the **Dashboard: results only** VS Code
+profile).
+
+- **Data.** After each successfully handled delivery the worker appends a line
+  to `RESULTS_DIR/results.jsonl` and writes the peak frame, with the counted
+  people boxed, as `RESULTS_DIR/<runId>.jpg`. Results Hub rejected are not
+  recorded. Recording is best-effort: a local write failure is logged and never
+  affects the delivery to Hub.
+- **API.** `GET /api/results` (newest first, latest record per run) and
+  `GET /snapshots/<runId>.jpg`. Run IDs are validated before touching the
+  file system; nothing outside `RESULTS_DIR` is served.
+- **Page.** One self-contained HTML file embedded in the binary, with no
+  external scripts or fonts, so it works offline. It polls every 4 seconds,
+  highlights new recordings, supports light and dark mode, keyboard focus on
+  chart bars, a table view of the chart, and phone widths.
+- **Privacy.** Snapshots can show people. `RESULTS_DIR` is created owner-only,
+  `results/` is ignored by Git, the default address is `127.0.0.1`, and
+  snapshots are never sent to Hub.
+
 ## Limitations
 
 - **Peak, not total.** Without tracking, one person walking through counts
