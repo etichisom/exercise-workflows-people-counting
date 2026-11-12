@@ -38,6 +38,10 @@ type personDetection struct {
 	// SampleSeconds is the time between analysed frames; a person seen in the
 	// last sample is assumed to stay visible until the next one.
 	SampleSeconds float64
+
+	// PeakSnapshot is a JPEG of the peak frame with the counted people boxed,
+	// for the local dashboard. It is never sent to Hub.
+	PeakSnapshot []byte
 }
 
 type personDetector interface {
@@ -154,7 +158,14 @@ func (detector *yoloPersonDetector) Detect(ctx context.Context, media []byte) (p
 		if err != nil {
 			return personDetection{}, err
 		}
+		newPeak := len(boxes) > detection.PeakCount
 		detection.recordFrame(float64(frameIndex)/fps, len(boxes), bestScore)
+		if newPeak {
+			// The snapshot is a dashboard aid; a failure must not fail the run.
+			if snapshot, err := peakSnapshot(frame, boxes); err == nil {
+				detection.PeakSnapshot = snapshot
+			}
+		}
 	}
 	if detection.FramesAnalyzed == 0 {
 		return personDetection{}, errors.New("YOLO did not decode any video frames")
@@ -193,6 +204,60 @@ func detectPeopleInFrame(session *ort.DynamicAdvancedSession, frame gocv.Mat, th
 // letterboxPadding is the grey Ultralytics uses to pad letterboxed inputs.
 const letterboxPadding = 114
 
+// letterbox describes how a frame is fitted into the square model input.
+type letterbox struct {
+	scale                    float64
+	width, height, left, top int
+}
+
+func newLetterbox(columns, rows int) letterbox {
+	scale := min(float64(yoloInputSize)/float64(columns), float64(yoloInputSize)/float64(rows))
+	width := min(yoloInputSize, max(1, int(math.Round(float64(columns)*scale))))
+	height := min(yoloInputSize, max(1, int(math.Round(float64(rows)*scale))))
+	return letterbox{scale: scale, width: width, height: height,
+		left: (yoloInputSize - width) / 2, top: (yoloInputSize - height) / 2}
+}
+
+// toFrame maps a box from model input coordinates back onto the original frame.
+func (geometry letterbox) toFrame(box personBox) image.Rectangle {
+	convert := func(value float32, offset int) int {
+		return int(math.Round((float64(value) - float64(offset)) / geometry.scale))
+	}
+	return image.Rect(convert(box.X1, geometry.left), convert(box.Y1, geometry.top),
+		convert(box.X2, geometry.left), convert(box.Y2, geometry.top))
+}
+
+// snapshotMaxWidth keeps dashboard snapshots small while staying legible.
+const snapshotMaxWidth = 960
+
+// peakSnapshot renders the frame with every counted person boxed and returns
+// it as a JPEG for the local dashboard.
+func peakSnapshot(frame gocv.Mat, boxes []personBox) ([]byte, error) {
+	geometry := newLetterbox(frame.Cols(), frame.Rows())
+	annotated := frame.Clone()
+	defer annotated.Close()
+	highlight := color.RGBA{R: 57, G: 135, B: 229} // series blue; gocv converts to BGR
+	thickness := max(2, frame.Cols()/400)
+	bounds := image.Rect(0, 0, frame.Cols(), frame.Rows())
+	for _, box := range boxes {
+		gocv.Rectangle(&annotated, geometry.toFrame(box).Intersect(bounds), highlight, thickness)
+	}
+	output := annotated
+	if annotated.Cols() > snapshotMaxWidth {
+		scaled := gocv.NewMat()
+		defer scaled.Close()
+		height := annotated.Rows() * snapshotMaxWidth / annotated.Cols()
+		gocv.Resize(annotated, &scaled, image.Pt(snapshotMaxWidth, height), 0, 0, gocv.InterpolationArea)
+		output = scaled
+	}
+	buffer, err := gocv.IMEncodeWithParams(gocv.JPEGFileExt, output, []int{gocv.IMWriteJpegQuality, 80})
+	if err != nil {
+		return nil, err
+	}
+	defer buffer.Close()
+	return append([]byte(nil), buffer.GetBytes()...), nil
+}
+
 // yoloInput letterboxes a BGR frame into the model's square input: it scales
 // the frame to fit while keeping its aspect ratio and pads the rest with grey.
 // Stretching a 16:9 frame to a square would make people look thinner than the
@@ -201,17 +266,17 @@ func yoloInput(frame gocv.Mat) ([]float32, error) {
 	if frame.Empty() || frame.Channels() != 3 {
 		return nil, errors.New("YOLO could not prepare a three-channel video frame")
 	}
-	scale := min(float64(yoloInputSize)/float64(frame.Cols()), float64(yoloInputSize)/float64(frame.Rows()))
-	width := min(yoloInputSize, max(1, int(math.Round(float64(frame.Cols())*scale))))
-	height := min(yoloInputSize, max(1, int(math.Round(float64(frame.Rows())*scale))))
+	geometry := newLetterbox(frame.Cols(), frame.Rows())
 	resized := gocv.NewMat()
 	defer resized.Close()
-	gocv.Resize(frame, &resized, image.Pt(width, height), 0, 0, gocv.InterpolationLinear)
-	left, top := (yoloInputSize-width)/2, (yoloInputSize-height)/2
+	gocv.Resize(frame, &resized, image.Pt(geometry.width, geometry.height), 0, 0, gocv.InterpolationLinear)
 	padded := gocv.NewMat()
 	defer padded.Close()
 	grey := color.RGBA{R: letterboxPadding, G: letterboxPadding, B: letterboxPadding}
-	gocv.CopyMakeBorder(resized, &padded, top, yoloInputSize-height-top, left, yoloInputSize-width-left, gocv.BorderConstant, grey)
+	gocv.CopyMakeBorder(resized, &padded,
+		geometry.top, yoloInputSize-geometry.height-geometry.top,
+		geometry.left, yoloInputSize-geometry.width-geometry.left,
+		gocv.BorderConstant, grey)
 	if padded.Empty() || padded.Channels() != 3 || padded.Cols() != yoloInputSize || padded.Rows() != yoloInputSize {
 		return nil, errors.New("YOLO could not prepare a three-channel video frame")
 	}

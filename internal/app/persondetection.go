@@ -57,6 +57,11 @@ type handledInvocation struct {
 	runID    string
 	callback *models.WorkflowCallback
 	result   models.WorkflowResult
+
+	// Local-only context for the results log; never sent to Hub.
+	mediaKey       string
+	recordingStart int64
+	detection      personDetection
 }
 
 func buildPersonMarker(invocation models.WorkflowInvocation, detection personDetection, start, duration int64) models.Marker {
@@ -239,9 +244,12 @@ func handleInvocation(ctx context.Context, body []byte, stageOperation string, s
 	}
 
 	return handledInvocation{
-		runID:    runID,
-		callback: callback,
-		result:   result,
+		runID:          runID,
+		callback:       callback,
+		result:         result,
+		mediaKey:       invocation.Media.Key,
+		recordingStart: start,
+		detection:      detection,
 	}, nil
 }
 

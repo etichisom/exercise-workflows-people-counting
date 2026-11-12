@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -125,7 +126,7 @@ func TestRecordFrameTracksPeakAndVisibility(t *testing.T) {
 		Detected: true, FramesAnalyzed: 6, MaxConfidence: 0.91,
 		PeakCount: 3, PeakAtSeconds: 2, FirstSeenSeconds: 1, LastSeenSeconds: 5, SampleSeconds: 1,
 	}
-	if detection != want {
+	if !reflect.DeepEqual(detection, want) {
 		t.Fatalf("detection = %+v, want %+v", detection, want)
 	}
 }

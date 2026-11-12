@@ -38,7 +38,20 @@ func Run() int {
 func run() error {
 	input := flag.String("input", "", "process a local workflow invocation JSON file without RabbitMQ or HTTP")
 	once := flag.Bool("once", false, "exit after one delivery (preview always exits after one)")
+	dashboardOnly := flag.Bool("dashboard", false, "only serve the results dashboard from RESULTS_DIR at DASHBOARD_ADDR")
 	flag.Parse()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if *dashboardOnly {
+		results, address, err := loadDashboardConfig()
+		if err != nil {
+			return err
+		}
+		if address == "" {
+			address = defaultDashboardAddr
+		}
+		return serveDashboard(ctx, address, results)
+	}
 	settings, err := loadConfig(*input != "")
 	if err != nil {
 		return err
@@ -48,15 +61,44 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		invocation, err := handleInvocation(context.Background(), body, settings.operation, settings.start, settings.duration, settings.detector)
+		invocation, err := handleInvocation(ctx, body, settings.operation, settings.start, settings.duration, settings.detector)
 		if err != nil {
 			return err
 		}
+		recordResult(settings, invocation, "offline")
 		return printPreview(os.Stdout, invocation)
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	if settings.dashboardAddr != "" {
+		go func() {
+			if err := serveDashboard(ctx, settings.dashboardAddr, settings.results); err != nil {
+				log.WithError(err).WithField("component", "dashboard").Error("Dashboard stopped")
+			}
+		}()
+	}
 	return consume(ctx, settings, *once)
+}
+
+// recordResult stores the outcome for the local dashboard. It is best-effort:
+// Hub has the authoritative result, so a local write failure is only logged.
+func recordResult(settings config, invocation handledInvocation, delivery string) {
+	if settings.results == nil {
+		return
+	}
+	record := newResultRecord(invocation, delivery, time.Now())
+	if err := settings.results.save(record, invocation.detection.PeakSnapshot); err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"component": "workflow_stage",
+			"event":     "result_record_failed",
+			"run_id":    invocation.runID,
+		}).Warn("Could not record result for the dashboard")
+	}
+}
+
+var deliveryNames = map[deliveryOutcome]string{
+	deliverySubmitted:       "submitted",
+	deliveryPreviewed:       "preview",
+	deliveryBypassed:        "bypass",
+	deliveryCallbackMissing: "callback-missing",
 }
 
 func handleDelivery(ctx context.Context, settings config, delivery amqp.Delivery, output io.Writer) (deliveryOutcome, error) {
@@ -75,6 +117,9 @@ func handleDelivery(ctx context.Context, settings config, delivery amqp.Delivery
 		default:
 			outcome = deliveryBypassed
 			err = printPreview(output, invocation)
+		}
+		if err == nil {
+			recordResult(settings, invocation, deliveryNames[outcome])
 		}
 	}
 	if err != nil || settings.mode == "preview" {

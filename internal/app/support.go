@@ -23,6 +23,35 @@ type config struct {
 	operation, mode, token, brokerURL, queue string
 	start, duration                          int64
 	detector                                 personDetector
+
+	// Optional local dashboard; both are empty unless RESULTS_DIR is set.
+	results       *resultStore
+	dashboardAddr string
+}
+
+const defaultDashboardAddr = "127.0.0.1:8090"
+
+// loadDashboardConfig reads RESULTS_DIR and DASHBOARD_ADDR. Without
+// RESULTS_DIR nothing is recorded; DASHBOARD_ADDR then has nothing to show.
+func loadDashboardConfig() (*resultStore, string, error) {
+	directory := strings.TrimSpace(os.Getenv("RESULTS_DIR"))
+	address := strings.TrimSpace(os.Getenv("DASHBOARD_ADDR"))
+	if directory == "" {
+		if address != "" {
+			return nil, "", errors.New("DASHBOARD_ADDR requires RESULTS_DIR")
+		}
+		return nil, "", nil
+	}
+	if address != "" {
+		if _, _, err := net.SplitHostPort(address); err != nil {
+			return nil, "", errors.New("set DASHBOARD_ADDR as host:port, e.g. 127.0.0.1:8090")
+		}
+	}
+	store, err := newResultStore(directory)
+	if err != nil {
+		return nil, "", err
+	}
+	return store, address, nil
 }
 
 func envOr(name, fallback string) string {
@@ -55,6 +84,10 @@ func loadConfig(offline bool) (config, error) {
 		return settings, err
 	}
 	settings.detector = detector
+	settings.results, settings.dashboardAddr, err = loadDashboardConfig()
+	if err != nil {
+		return settings, err
+	}
 	if offline {
 		return settings, nil
 	}
