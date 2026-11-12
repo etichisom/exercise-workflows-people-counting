@@ -103,10 +103,17 @@ profile).
 - **API.** `GET /api/results` (newest first, latest record per run) and
   `GET /snapshots/<runId>.jpg`. Run IDs are validated before touching the
   file system; nothing outside `RESULTS_DIR` is served.
-- **Page.** One self-contained HTML file embedded in the binary, with no
-  external scripts or fonts, so it works offline. It polls every 4 seconds,
-  highlights new recordings, supports light and dark mode, keyboard focus on
-  chart bars, a table view of the chart, and phone widths.
+- **Page.** A React + TypeScript + Vite app in [web/dashboard](../web/dashboard),
+  built with the Hub widgets from UUG.AI's design system
+  ([uug-ai/design](https://github.com/uug-ai/design), vendored under MIT), so
+  KPIs, blocks, badges, tables and toggles look like Hub itself. The chart is
+  a custom SVG in Hub's purple, checked for contrast on Hub's light and dark
+  cards. The production build is committed into `internal/app/dashboard` and
+  embedded in the worker, with the Inter font bundled, so it works offline
+  and the Go build needs no Node. It polls every 4 seconds (paused while the
+  tab is hidden), highlights new recordings, follows the system light/dark
+  setting with a toggle, supports keyboard focus on chart bars, a table view,
+  and phone widths.
 - **Privacy.** Snapshots can show people. `RESULTS_DIR` is created owner-only,
   `results/` is ignored by Git, the default address is `127.0.0.1`, and
   snapshots are never sent to Hub.
