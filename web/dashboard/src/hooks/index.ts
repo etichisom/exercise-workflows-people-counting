@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { signature } from './summary'
-import type { ConnectionState, ResultRecord, ResultsResponse } from './types'
+import { signature } from '@/summary'
+import type { ConnectionState, ResultRecord, ResultsResponse } from '@/types'
 
 const POLL_MS = 4000
 
@@ -109,4 +109,64 @@ export function useNow(intervalMs = 15000): Date {
     return () => window.clearInterval(timer)
   }, [intervalMs])
   return now
+}
+
+export function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/** Eases a displayed number towards its target so a changed count is noticed, not missed. */
+export function useCountUp(target: number, durationMs = 450): number {
+  const [value, setValue] = useState(target)
+  const shown = useRef(target)
+  useEffect(() => {
+    const from = shown.current
+    if (from === target) return
+    if (prefersReducedMotion()) {
+      shown.current = target
+      setValue(target)
+      return
+    }
+    let frame = 0
+    const start = performance.now()
+    const step = (time: number) => {
+      const progress = Math.min(1, (time - start) / durationMs)
+      const eased = 1 - (1 - progress) ** 3
+      shown.current = Math.round(from + (target - from) * eased)
+      setValue(shown.current)
+      if (progress < 1) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [target, durationMs])
+  return value
+}
+
+/** The last section whose top has scrolled past the sticky header, for sidebar highlighting. */
+export function useActiveSection<T extends string>(ids: readonly T[], offsetPx = 120): T {
+  const [active, setActive] = useState<T>(ids[0])
+  useEffect(() => {
+    let frame = 0
+    const update = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        let current = ids[0]
+        for (const id of ids) {
+          const element = document.getElementById(id)
+          if (element && element.getBoundingClientRect().top <= offsetPx) current = id
+        }
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = ids[ids.length - 1]
+        setActive(current)
+      })
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [ids, offsetPx])
+  return active
 }

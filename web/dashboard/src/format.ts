@@ -69,3 +69,21 @@ const deliveryLabels: Record<string, string> = {
 export function deliveryLabel(delivery: string): string {
   return deliveryLabels[delivery] ?? delivery
 }
+
+/**
+ * The camera a recording came from, read from its media key
+ * (`<user>/<milliseconds>-<agent name>.mp4`). Falls back to a generic label.
+ */
+export function cameraName(mediaKey: string): string {
+  const file = mediaKey.split('/').pop() ?? ''
+  const name = file.replace(/\.[a-z0-9]+$/i, '').replace(/^\d+-/, '')
+  return name || 'Camera'
+}
+
+/** How a clip's peak compares with the clip before it. */
+export function comparePeak(current: number, previous: number | null): string {
+  if (previous === null) return 'First clip of the session'
+  if (current === previous) return 'Same as the previous clip'
+  const difference = Math.abs(current - previous)
+  return `${difference} ${current > previous ? 'more' : 'fewer'} than the previous clip`
+}

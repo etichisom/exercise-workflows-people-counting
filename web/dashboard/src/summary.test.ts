@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   chronological, clipSeconds, crowdBreakdown, crowdLevel, filterRecordings, niceScale, signature, summarize, tabCounts,
 } from './summary'
-import { deliveryLabel, hubRecordingUrl, offset, people, relativeTime, snapshotUrl, visibleSpan } from './format'
+import { cameraName, comparePeak, deliveryLabel, hubRecordingUrl, offset, people, relativeTime, snapshotUrl, visibleSpan } from './format'
 import type { ResultRecord } from './types'
 
 function record(overrides: Partial<ResultRecord>): ResultRecord {
@@ -153,5 +153,23 @@ describe('format', () => {
     expect(deliveryLabel('submitted')).toBe('Sent to Hub')
     expect(deliveryLabel('offline')).toBe('Offline test')
     expect(deliveryLabel('custom')).toBe('custom')
+  })
+})
+
+describe('cameraName', () => {
+  it('reads the agent name from a Hub media key', () => {
+    expect(cameraName('user/1794497153930-front-door.mp4')).toBe('front-door')
+  })
+  it('falls back when the key has no name', () => {
+    expect(cameraName('')).toBe('Camera')
+  })
+})
+
+describe('comparePeak', () => {
+  it('describes the change from the previous clip', () => {
+    expect(comparePeak(4, null)).toBe('First clip of the session')
+    expect(comparePeak(4, 4)).toBe('Same as the previous clip')
+    expect(comparePeak(4, 2)).toBe('2 more than the previous clip')
+    expect(comparePeak(0, 2)).toBe('2 fewer than the previous clip')
   })
 })
