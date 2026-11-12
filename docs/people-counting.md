@@ -105,11 +105,12 @@ profile).
   file system; nothing outside `RESULTS_DIR` is served.
 - **Page.** A React + TypeScript + Vite app in [web/dashboard](../web/dashboard)
   built with [shadcn/ui](https://ui.shadcn.com) (Radix primitives, Tailwind
-  CSS v4). It shows the pipeline at a glance (analysed, with people, busiest
-  moment, sent to Hub), peak people per recording, a crowd-size breakdown,
-  and a searchable, filterable recordings table with a detail dialog per
-  recording. The chart is a custom SVG: muted bars with the newest recording
-  highlighted in a blue validated for 3:1 contrast on light and dark cards.
+  CSS v4), starting from shadcn's `dashboard-01` block and its default
+  neutral theme: KPI cards, an interactive area chart of peak people per
+  clip, a clip viewer (the busiest frame with a scrubber marking when people
+  were in view), and a searchable, sortable recordings table whose rows open
+  a drawer with the peak frame. The viewer follows the newest clip until an
+  older one is picked.
   The production build is committed into `internal/app/dashboard` and
   embedded in the worker, with the Geist font bundled, so it works offline
   and the Go build needs no Node. It polls every 4 seconds (paused while the

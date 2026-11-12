@@ -143,8 +143,9 @@ classified → Forward to my system, Wait for result, TLS **off**, queue
   logs). Recording dashboard results must never block or fail a Hub delivery.
 - Dashboard: shadcn/ui components in `src/components/ui` (owned code); pure
   logic in `summary.ts`/`format.ts` with Vitest tests; every off-site link
-  goes through `ExternalLink` (a test enforces it); one blue accent, light and
-  dark themes as tokens in `src/index.css`; check colour contrast and verify
+  goes through `ExternalLink` (a test enforces it); built from shadcn's
+  `dashboard-01` block with shadcn's default neutral theme (light and dark
+  tokens in `src/index.css`), so prefer stock shadcn blocks and tokens; check colour contrast and verify
   in a browser (light, dark, phone width) before calling UI work done.
 - Never commit `.env`, `results/`, snapshots, or screenshots with people.
 

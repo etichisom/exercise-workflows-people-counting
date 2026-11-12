@@ -37,30 +37,36 @@ that every asset the page references is embedded.
 
 ## Design notes
 
-- **Layout.** Sidebar navigation, a sticky header with live status, then a
-  pipeline summary, the chart beside a crowd-size breakdown, and the
-  recordings table. Below `lg` the sidebar collapses into the header.
-- **Colour.** Cool neutrals with one blue accent, reserved for the primary
-  action, the selected state and the newest chart bar. Light and dark themes
-  are defined as tokens in `src/index.css`; the chart blue is validated for
-  3:1 contrast on both card surfaces.
+- **Based on shadcn's `dashboard-01` block** (`npx shadcn@latest add dashboard-01`),
+  adapted to occupancy data: the inset sidebar, a site header, four KPI
+  cards with trend badges, the interactive area chart, and the TanStack data
+  table with view tabs, column picker, row menu, pagination and a row drawer.
+  The block's demo data, drag-to-reorder and row selection were removed.
+- **One addition: the clip viewer.** The selected clip's busiest frame with
+  a scrubber, beside its count and facts. It follows the newest clip until a
+  clip is picked from the chart, the busiest-moment card or a row's drawer.
+- **Theme.** shadcn/ui's default neutral theme, unchanged, in light and dark
+  (`src/index.css`). Only success/warning (status dots) and a muted bar
+  colour are added. Timecodes use Geist Mono so digits do not shift.
 - **States.** Loading skeletons, an empty state, an offline banner that keeps
-  the last data visible, and an empty-filter message with a clear action.
-- **Accessibility.** Skip link, landmarks, a breadcrumb, focus rings,
-  keyboard-reachable chart bars with tooltips, status shown as dot plus text,
-  a labelled dialog with focus trapping, and reduced-motion support.
+  the last data visible, and an empty-filter message.
+- **Accessibility.** Skip link, landmarks, a breadcrumb, a scroll-aware
+  sidebar, labelled scrubbers and icon buttons, status shown as dot plus
+  text, focus returned to the viewer after "Show in viewer", and
+  reduced-motion support.
 
 ## Layout
 
 | Path | Purpose |
 | --- | --- |
-| `src/App.tsx` | Page shell, header and states |
-| `src/components/AppSidebar.tsx` | Navigation, worker status and theme toggle |
-| `src/components/FlowSummary.tsx` | Pipeline summary with the busiest moment |
-| `src/components/PeakChart.tsx` | Peak-per-recording SVG bar chart |
-| `src/components/CrowdBreakdown.tsx` | Recordings by crowd size |
-| `src/components/RecordingsTable.tsx` | Tabs, search, filter and table |
-| `src/components/RecordingDialog.tsx` | Peak frame and facts for one recording |
+| `src/App.tsx` | Page shell (sidebar provider, inset), selection and states |
+| `src/components/AppSidebar.tsx` | Navigation, Hub links, theme toggle, worker status |
+| `src/components/SiteHeader.tsx` | Sidebar trigger, breadcrumb title, live status |
+| `src/components/SectionCards.tsx` | Four KPI cards |
+| `src/components/OccupancyChart.tsx` | Peak people per clip (Recharts area chart) |
+| `src/components/Viewer.tsx` | Selected clip: busiest frame, scrubber, count and facts |
+| `src/components/RecordingsTable.tsx` | TanStack data table of recordings |
+| `src/components/RecordingDrawer.tsx` | Row drawer with the peak frame and details |
 | `src/components/ui` | shadcn/ui components (generated, then owned here) |
-| `src/hooks.ts` | Polling, element width, theme and clock hooks |
+| `src/hooks/` | Polling, theme, clock, count-up and scroll-spy hooks; `use-mobile` from shadcn |
 | `src/summary.ts`, `src/format.ts` | Pure data and formatting logic (unit tested) |
