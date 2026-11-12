@@ -706,6 +706,11 @@ longer queue work for an unattended worker. Delete the exercise access token.
 
 ## Make it your own
 
+> **Implemented extension: [People counting](docs/people-counting.md).** The
+> stage now counts how many people are visible at the busiest moment and
+> writes the count, peak time, and visible span back to Hub as a searchable
+> marker.
+
 Once the baseline works, explain it in your own words before modifying it.
 Use observations from your run and the implementation, not just the diagram:
 

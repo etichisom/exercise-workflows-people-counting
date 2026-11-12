@@ -26,12 +26,18 @@ For each valid invocation, the worker:
    100 MiB limit
 3. stages the bytes in a private temporary file because OpenCV video capture
    requires a filename
-4. samples frames at `YOLO_SAMPLE_FPS`
-5. runs YOLO11n until the first person confidence reaches
-   `YOLO_CONFIDENCE`
-6. submits one of the two result forms below
+4. samples frames at `YOLO_SAMPLE_FPS` across the whole clip
+5. letterboxes each sampled frame to 640x640, runs YOLO11n, keeps person
+   boxes scoring at least `YOLO_CONFIDENCE`, and merges duplicate boxes with
+   non-maximum suppression to count the people in that frame
+6. records the peak count, when it happened, and when people were first and
+   last visible
+7. submits one of the two result forms below
 
-When `MARKER_START_TIMESTAMP` is empty, the marker interval starts at the
+See [People counting](docs/people-counting.md) for the design, measurements,
+and limitations of the counting stage.
+
+When `MARKER_START_TIMESTAMP` is empty, the recording start is the
 timestamp prefix of the recording's filename in `media.key`: Unix
 milliseconds followed by `-<device>.mp4` for dated keys
 (`owner/yyyy/mm/dd/<ms>-<device>.mp4`), or Unix seconds followed by `_` for
@@ -44,9 +50,16 @@ invalid filename timestamps stop processing before downloading media.
 The temporary file is removed after processing. Signed URL credentials and
 query parameters are redacted from logs.
 
-### Person detected
+The marker covers the time people were visible: from the first to the last
+sampled frame containing a person, plus one sample interval, measured from the
+recording start. `MARKER_DURATION_SECONDS` is used only as a fallback window
+when no frame timing is available.
 
-Hub receives an ingest `payload` containing a marker and media patch:
+### People detected
+
+Hub receives an ingest `payload` containing a marker and media patch. The
+marker name carries the peak count, so recordings can be filtered by crowd
+size in Hub's marker filter:
 
 ```json
 {
@@ -62,18 +75,29 @@ Hub receives an ingest `payload` containing a marker and media patch:
           "siteId": "site-1",
           "organisationId": "org-1",
           "mediaKeys": ["recording.mp4"],
-          "startTimestamp": 1700000000,
-          "endTimestamp": 1700000030,
-          "duration": 30,
-          "name": "person detected",
-          "description": "YOLO detected a person with 0.91 confidence after analyzing 3 sampled frames"
+          "startTimestamp": 1700000002,
+          "endTimestamp": 1700000027,
+          "duration": 25,
+          "name": "3 people detected",
+          "description": "YOLO counted up to 3 people at 0:12; people visible 0:02-0:27; 30 sampled frames, best person confidence 0.93",
+          "categories": [{ "name": "people counting" }],
+          "tags": [{ "name": "people:3" }],
+          "events": [
+            {
+              "name": "peak occupancy",
+              "description": "3 people visible at once",
+              "startTimestamp": 1700000012,
+              "endTimestamp": 1700000013,
+              "duration": 1
+            }
+          ]
         }
       },
       {
         "type": "media-patch",
         "data": {
           "mediaKey": "recording.mp4",
-          "description": "YOLO detected a person with 0.91 confidence after analyzing 3 sampled frames"
+          "description": "YOLO counted up to 3 people at 0:12; people visible 0:02-0:27; 30 sampled frames, best person confidence 0.93"
         }
       }
     ]
@@ -98,6 +122,7 @@ threshold, the worker therefore sends a routing `result` instead:
   },
   "result": {
     "framesAnalyzed": 30,
+    "peopleCount": 0,
     "personDetected": false
   }
 }
@@ -210,7 +235,7 @@ investigating or extending the stage:
 | `STAGE_OPERATION` | Operation expected in `stage.operation`; defaults to `forwarder` |
 | `YOLO_MODEL` | YOLO11n ONNX model path |
 | `ONNXRUNTIME_SHARED_LIBRARY` | ONNX Runtime shared-library path |
-| `YOLO_CONFIDENCE` | Person confidence threshold in `(0, 1]`; default `0.5` |
+| `YOLO_CONFIDENCE` | Person confidence threshold in `(0, 1]`; default `0.35` (see [people counting](docs/people-counting.md#choosing-the-threshold)) |
 | `YOLO_SAMPLE_FPS` | Frames analyzed per second in `(0, 30]`; default `1` |
 | `LOG_LEVEL` | Logrus level; default `info` |
 | `LOG_OUTPUT` | `text` or `json`; default `text` |
