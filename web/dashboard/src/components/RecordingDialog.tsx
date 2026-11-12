@@ -1,7 +1,7 @@
 import { ArrowUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Snapshot, StatusDot } from '@/components/shared'
+import { ExternalLink, Snapshot, StatusDot } from '@/components/shared'
 import { deliveryLabel, hubRecordingUrl, offset, people, recordedLabel, visibleSpan } from '@/format'
 import type { ResultRecord } from '@/types'
 
@@ -44,9 +44,9 @@ export function RecordingDialog({ record, onClose }: { record: ResultRecord | nu
       <DialogFooter>
         <DialogClose asChild><Button variant="outline">Close</Button></DialogClose>
         <Button asChild>
-          <a href={hubRecordingUrl(record)} target="_blank" rel="noopener noreferrer">
+          <ExternalLink href={hubRecordingUrl(record)}>
             Open in Hub <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-          </a>
+          </ExternalLink>
         </Button>
       </DialogFooter>
     </DialogContent>}

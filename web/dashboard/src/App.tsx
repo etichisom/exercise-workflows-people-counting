@@ -9,7 +9,7 @@ import { FlowSummary } from '@/components/FlowSummary'
 import { PeakChart } from '@/components/PeakChart'
 import { RecordingDialog } from '@/components/RecordingDialog'
 import { RecordingsTable } from '@/components/RecordingsTable'
-import { HUB_URL, StatusDot } from '@/components/shared'
+import { ExternalLink, HUB_URL, StatusDot } from '@/components/shared'
 import { useNow, useResults, useTheme } from '@/hooks'
 import { recordedAt, relativeTime } from '@/format'
 import { chronological, summarize } from '@/summary'
@@ -97,10 +97,9 @@ export function App() {
           {theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
         </Button>
         <Button asChild>
-          <a href={`${HUB_URL}/media`} target="_blank" rel="noopener noreferrer">
+          <ExternalLink href={`${HUB_URL}/media`}>
             Open Hub <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
+          </ExternalLink>
         </Button>
       </header>
 

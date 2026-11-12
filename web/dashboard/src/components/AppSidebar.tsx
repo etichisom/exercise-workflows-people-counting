@@ -1,6 +1,6 @@
 import { ArrowUpRight, Camera, LayoutDashboard, ListVideo, Moon, Sun, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { StatusDot, HUB_URL } from '@/components/shared'
+import { ExternalLink, StatusDot, HUB_URL } from '@/components/shared'
 import { relativeTime } from '@/format'
 import type { ConnectionState } from '@/types'
 
@@ -11,17 +11,17 @@ function NavGroup({ title, items, active }: { title: string; items: NavItem[]; a
     <p className="px-3 pb-1 text-xs font-medium text-muted-foreground">{title}</p>
     <ul className="space-y-0.5">
       {items.map(item => {
-        const isActive = item.href === active
+        const className = 'group flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground'
+        const content = <>
+          <item.icon className="size-4 text-muted-foreground group-aria-[current=page]:text-foreground" aria-hidden="true" />
+          <span className="flex-1">{item.label}</span>
+          {item.count !== undefined && <span className="tabular text-xs text-muted-foreground">{item.count}</span>}
+          {item.external && <ArrowUpRight className="size-3.5 text-muted-foreground" aria-hidden="true" />}
+        </>
         return <li key={item.label}>
-          <a href={item.href} target={item.external ? '_blank' : undefined} rel={item.external ? 'noopener noreferrer' : undefined}
-            aria-current={isActive ? 'page' : undefined}
-            className="group flex h-9 items-center gap-3 rounded-lg px-3 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-foreground">
-            <item.icon className="size-4 text-muted-foreground group-aria-[current=page]:text-foreground" aria-hidden="true" />
-            <span className="flex-1">{item.label}</span>
-            {item.count !== undefined && <span className="tabular text-xs text-muted-foreground">{item.count}</span>}
-            {item.external && <ArrowUpRight className="size-3.5 text-muted-foreground" aria-hidden="true" />}
-            {item.external && <span className="sr-only">(opens in a new tab)</span>}
-          </a>
+          {item.external
+            ? <ExternalLink href={item.href} className={className}>{content}</ExternalLink>
+            : <a href={item.href} aria-current={item.href === active ? 'page' : undefined} className={className}>{content}</a>}
         </li>
       })}
     </ul>

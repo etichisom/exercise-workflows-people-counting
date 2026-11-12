@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Snapshot, StatusDot } from '@/components/shared'
+import { ExternalLink, Snapshot, StatusDot } from '@/components/shared'
 import { cn } from '@/lib/utils'
 import { deliveryLabel, hubRecordingUrl, offset, people, recordedLabel, visibleSpan } from '@/format'
 import { clipSeconds, crowdLevels, filterRecordings, tabCounts } from '@/summary'
@@ -142,10 +142,10 @@ export function RecordingsTable({ results, newRuns, onOpen }: {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon-sm" asChild onClick={event => event.stopPropagation()}>
-                    <a href={hubRecordingUrl(record)} target="_blank" rel="noopener noreferrer"
-                      aria-label={`Open the ${recordedLabel(record)} recording in Hub (new tab)`}>
+                    <ExternalLink href={hubRecordingUrl(record)}
+                      aria-label={`Open the ${recordedLabel(record)} recording in Hub (opens in a new tab)`}>
                       <ArrowUpRight aria-hidden="true" />
-                    </a>
+                    </ExternalLink>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Open in Hub</TooltipContent>

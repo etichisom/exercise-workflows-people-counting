@@ -5,6 +5,21 @@ import type { ResultRecord } from '@/types'
 
 export const HUB_URL = 'https://app.kerberos.io'
 
+/** Attributes every link leaving the dashboard must carry. */
+export const externalLinkProps = { target: '_blank', rel: 'noopener noreferrer' } as const
+
+/**
+ * A link to another site. It always opens in a new tab (so the live
+ * dashboard keeps running), never gives the new page access to this one,
+ * and tells screen-reader users about the new tab.
+ */
+export function ExternalLink({ children, ...props }: Omit<React.ComponentProps<'a'>, 'target' | 'rel'>) {
+  return <a {...props} {...externalLinkProps}>
+    {children}
+    <span className="sr-only"> (opens in a new tab)</span>
+  </a>
+}
+
 /** The peak frame with counted people boxed, or a clear placeholder. */
 export function Snapshot({ record, className, alt }: { record: ResultRecord; className?: string; alt: string }) {
   if (!record.hasSnapshot) {
